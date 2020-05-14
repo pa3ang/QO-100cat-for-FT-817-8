@@ -41,31 +41,30 @@
 const int RX  = 3;                // Connection to FT-818
 const int TX  = 2;                // Connection to FT-818
 long CATspeed = 38400;            // CAT Speed FT-818
-SoftwareSerial CAT(RX, TX);       // Create CAT connection
+SoftwareSerial CAT(RX, TX);       // Create CAT connection and object
 
 #include <Wire.h>                 // load display library
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define OLED_RESET 4              // if display has reset connection
+#define OLED_RESET 4              // if display has reset connection and create object
 Adafruit_SSD1306 display(OLED_RESET);
 
-// Transceiver commands used in the program
+// Transceiver commands used in this program
 byte READ_LOCK[]  = {0x00, 0x00, 0x00, 0x00, 0x80};
 byte READ_SPLIT[] = {0x00, 0x00, 0x00, 0x00, 0x02};
 byte READ_CLAR[]  = {0x00, 0x00, 0x00, 0x00, 0x85};
 byte READ_FREQ[]  = {0x00, 0x00, 0x00, 0x00, 0x03};
 byte READ_PTT[]   = {0x00, 0x00, 0x00, 0x00, 0xF7};
 byte TOGGLE_VFO[] = {0x00, 0x00, 0x00, 0x00, 0x81};
-byte SET_PSK[]    = {0x0C, 0x00, 0x00, 0x00, 0x07};
-byte SET_LSB[]    = {0x00, 0x00, 0x00, 0x00, 0x07};
-byte SET_USB[]    = {0x01, 0x00, 0x00, 0x00, 0x07};
-byte SET_CW[]     = {0x02, 0x00, 0x00, 0x00, 0x07};
+byte SET_PSK[]    = {0x0C, 0x00, 0x00, 0x00, 0x07};  // mode = 12
+byte SET_LSB[]    = {0x00, 0x00, 0x00, 0x00, 0x07};  // mode = 0
+byte SET_USB[]    = {0x01, 0x00, 0x00, 0x00, 0x07};  // mode = 1
+byte SET_CW[]     = {0x02, 0x00, 0x00, 0x00, 0x07};  // mode = 2
 
 // variables used in the program
 int Word;                         // word received or send from and to CAT
-int Hex[5];                       // placeholder for capturing 5 words from CAT
-long Int[5];                      // placeholder for calculation frequency value from Hex
+int Hex[5];                       // placeholder for capturing 5 words from CAT in readFrequency
 
 bool calibrate = false;           // flag indicating calibration routine active
 bool startup   = true;            // set FT-818 at home frequency at program start
@@ -84,7 +83,7 @@ int TX_current_mode;              // Current uplink TX Mode
 long LNB_offset       = 1005697900;
 long LNB_calibrate    = -200;
 
-// SG Labs transverter has 230 Hz minus deviation
+// SG Labs transverter has 230 Hz minus misalignment of TCXO
 long TX_LO_frequency  = 196800000 - 23;
 
 // Beacon & Home Frequency *10Hz
@@ -96,13 +95,14 @@ void readFrequency() {
   for (byte i = 0; i < sizeof(READ_FREQ); i++)(CAT.write(READ_FREQ[i]));
   delay(settle_time);
   for (int i = 0; i < 5; i++) { // expect 5 bytes
-    Hex[i] = CAT.read();        // use Hex[1] buuffer to capture Modulation
-    Int[i] = String(Hex[i], HEX).toInt();
+    Hex[i] = CAT.read();        // use Hex[1] buffer to capture Frequency digits and Modulation
   }
   CAT.end();
-  RX_frequency = (Int[0] * 1000000) + Int[1] * 10000 + Int[2] * 100 + Int[3];
+  // format and caculate the 3 frequencies
+  RX_frequency = (String(Hex[0], HEX).toInt() * 1000000) + String(Hex[1], HEX).toInt() * 10000 + String(Hex[2], HEX).toInt() * 100 + String(Hex[3], HEX).toInt();
   QO_frequency = RX_frequency + LNB_offset + LNB_calibrate;
   TX_frequency = QO_frequency - 808950000 - TX_LO_frequency;  
+  // and capture the mode
   Mode = Hex[4];
 }
 
@@ -183,10 +183,7 @@ void setTXFrequency() {
 
 void setFrequency() {
   // write 8 formated frequency words to FT-818  /w delimiter \x01 
-  CAT.write(((((String (Frequency).substring(0, 2)).toInt()) / 10) << 4) + (((String (Frequency).substring(0, 2)).toInt()) % 10));
-  CAT.write(((((String (Frequency).substring(2, 4)).toInt()) / 10) << 4) + (((String (Frequency).substring(2, 4)).toInt()) % 10));
-  CAT.write(((((String (Frequency).substring(4, 6)).toInt()) / 10) << 4) + (((String (Frequency).substring(4, 6)).toInt()) % 10));
-  CAT.write(((((String (Frequency).substring(6, 8)).toInt()) / 10) << 4) + (((String (Frequency).substring(6, 8)).toInt()) % 10));
+  for (byte i = 0; i < 7; i = i + 2)(CAT.write(((((String (Frequency).substring(i, i+2)).toInt()) / 10) << 4) + (((String (Frequency).substring(i, i+2)).toInt()) % 10)));
   CAT.write(((1 / 10) << 4) + (1 % 10));
 }
 
