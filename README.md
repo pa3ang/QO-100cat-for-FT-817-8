@@ -11,7 +11,7 @@ Arduino sketch for CAT controlling FT-818 with Arduino Nano and small SSD1306 12
     The LNB converts down from 10489 to 432 MHz. Calibration is only needed to accomodate for the outside temperature deviations 
     which are about +- 1kHz on 70cm. 
     
-    The FT-818 can be wired directly from the ACC Jack to the Ardunio digital pin 3 (RX D) and 2 (TX D) and GND. No level schifter is 
+    The FT-818 can be wired directly from the ACC Jack to the Ardunio digital pin D3 (ACC TX D) and D2 (ACC TX D) and GND to GND. No level schifter is 
     needed. 
 
     The sketch reads VFO A frequency and calculates the associated QO-100 transponder downlink frequency based on
